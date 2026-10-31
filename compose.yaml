@@ -1,0 +1,65 @@
+x-airflow: &airflow
+  build: .
+  user: "${AIRFLOW_UID:-50000}:0"
+  environment: &environment
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__WEBSERVER__SECRET_KEY: filingflow-local-demo-secret
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    DATABASE_URL: postgresql://filingflow:filingflow@postgres/filingflow
+    SEC_USER_AGENT: ${SEC_USER_AGENT:-}
+    FILINGFLOW_MODE: ${FILINGFLOW_MODE:-demo}
+    FILINGFLOW_CIKS: ${FILINGFLOW_CIKS:-0000320193,0000789019}
+    ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+    PYTHONPATH: /opt/airflow
+  volumes:
+    - ./dags:/opt/airflow/dags:ro
+    - airflow-logs:/opt/airflow/logs
+    - pipeline-data:/opt/airflow/data
+  depends_on:
+    postgres:
+      condition: service_healthy
+services:
+  postgres:
+    image: postgres:16.6
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U airflow']
+      interval: 5s
+      retries: 20
+  airflow-init:
+    <<: *airflow
+    command: >-
+      bash -c "airflow db migrate &&
+      (airflow users list | grep -q admin || airflow users create
+      --username admin --password admin --firstname Filing --lastname Flow
+      --role Admin --email admin@example.com)"
+  scheduler:
+    <<: *airflow
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+  webserver:
+    <<: *airflow
+    command: webserver
+    ports: ['127.0.0.1:8080:8080']
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+  dashboard:
+    <<: *airflow
+    command: python -m filingflow.dashboard
+    ports: ['127.0.0.1:8501:8501']
+volumes:
+  postgres-data:
+  airflow-logs:
+  pipeline-data:
