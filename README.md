@@ -1,3 +1,5 @@
+**Tech stack:** Python, Apache Airflow, PostgreSQL, Apache Parquet, DuckDB, Docker Compose, GitHub Actions
+
 # FilingFlow
 
 A local SEC financial-data pipeline with Apache Airflow, a Parquet/DuckDB analytical lake, PostgreSQL serving tables, and a live run dashboard. No paid services or cloud account required. Docker Desktop licensing depends on your organization; the application stack uses open-source technologies.
